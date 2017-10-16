@@ -191,7 +191,46 @@ def conv_forward(x, w, b, conv_param):
     # TODO: Implement the convolutional forward pass.                         #
     # Hint: you can use the function np.pad for padding.                      #
     ###########################################################################
-    pass
+    N = x.shape[0]
+    F = w.shape[0]
+    C = x.shape[1]
+    
+    Oh = 1 + ( x.shape[2] + conv_param['pad'] - w.shape[2])/conv_param['stride']
+    Ow = 1 + ( x.shape[3] + conv_param['pad'] - w.shape[3])/conv_param['stride']
+    out = np.empty([N,F,int(Oh),int(Ow)],dtype="float32")
+    Temp = np.empty([x.shape[2]+conv_param['pad'],x.shape[3]+conv_param['pad']],dtype="float32")
+
+    W = np.empty([F, C*w.shape[2]*w.shape[3]], dtype="float32")
+    for f in range(F):
+        Wlist = np.array([])
+        for c in range(C):
+            Wlist = np.append(Wlist,w[f][c].flatten())  
+        W[f] = Wlist
+
+    #print(x)
+    for n in range(N):
+        X = np.empty([int(Oh*Ow),C*w.shape[2]*w.shape[3]],dtype="float32")
+        xfrom = 0        
+        yfrom = 0
+        for i in range(int(Oh*Ow)):
+            Xlist = np.array([])
+            for c in range(C):
+                Temp = np.pad(x[n][c],(1,1),'constant')
+                Xlist = np.append(Xlist,Temp[yfrom:yfrom+w.shape[2],xfrom:xfrom+w.shape[3]].flatten())
+            #print(Xlist)
+            X[i]=Xlist
+            xfrom = xfrom + conv_param['stride']
+            if (xfrom+w.shape[3]>Temp.shape[1]):
+                xfrom = 0
+                yfrom = yfrom + conv_param['stride']
+
+        tempOut = np.dot(W,X.transpose())
+        B = np.tile(np.array([b]).transpose(), (1,int(Oh*Ow)))
+        tempOut = tempOut + B
+        out[n] = tempOut.reshape(F,int(Oh),int(Ow))
+        
+        
+    #print(out)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
