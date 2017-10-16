@@ -208,8 +208,9 @@ def conv_forward(x, w, b, conv_param):
         W[f] = Wlist
 
     #print(x)
+    X = np.empty([N,int(Oh*Ow),C*w.shape[2]*w.shape[3]],dtype="float32")
     for n in range(N):
-        X = np.empty([int(Oh*Ow),C*w.shape[2]*w.shape[3]],dtype="float32")
+        Xtemp = np.empty([int(Oh*Ow),C*w.shape[2]*w.shape[3]],dtype="float32")
         xfrom = 0        
         yfrom = 0
         for i in range(int(Oh*Ow)):
@@ -218,23 +219,26 @@ def conv_forward(x, w, b, conv_param):
                 Temp = np.pad(x[n][c],(1,1),'constant')
                 Xlist = np.append(Xlist,Temp[yfrom:yfrom+w.shape[2],xfrom:xfrom+w.shape[3]].flatten())
             #print(Xlist)
-            X[i]=Xlist
+            Xtemp[i]=Xlist
             xfrom = xfrom + conv_param['stride']
             if (xfrom+w.shape[3]>Temp.shape[1]):
                 xfrom = 0
                 yfrom = yfrom + conv_param['stride']
 
-        tempOut = np.dot(W,X.transpose())
+        tempOut = np.dot(W,Xtemp.transpose())
         B = np.tile(np.array([b]).transpose(), (1,int(Oh*Ow)))
         tempOut = tempOut + B
         out[n] = tempOut.reshape(F,int(Oh),int(Ow))
+        X[n-1]=Xtemp
+        
         
         
     #print(out)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
-    cache = (x, w, b, conv_param)
+    #print(X)
+    cache = (X, W, B, conv_param)
     return out, cache
 
 
@@ -255,7 +259,20 @@ def conv_backward(dout, cache):
     ###########################################################################
     # TODO: Implement the convolutional backward pass.                        #
     ###########################################################################
-    pass
+    dx = np.zeros_like(cache[0],dtype="float32")
+    dw = np.zeros_like(cache[1],dtype="float32")
+    db = np.zeros_like(cache[2],dtype="float32")
+    print(dx.shape,dw.shape,db.shape)
+    N = dout.shape[0]
+    for n in range(N):
+        dout_flat = dout[n-1].reshape(dw.shape[0],dout[n-1].shape[1]*dout[n-1].shape[2])
+        #print(dout_flat,dx[n-1])
+        dw = dw + np.dot(dout_flat,cache[0][n-1])
+        #print(dw)
+        #dx = dx + np.dot()
+    
+    dw = dw.reshape(2,3,3,3)
+    print("dw",dw)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
