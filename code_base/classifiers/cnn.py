@@ -49,7 +49,15 @@ class ThreeLayerConvNet(object):
     # hidden affine layer, and keys 'W3' and 'b3' for the weights and biases   #
     # of the output affine layer.                                              #
     ############################################################################
-    pass
+    C, H, W = input_dim
+    self.params['W1'] = np.random.normal(scale=weight_scale,size=(num_filters,C,filter_size,filter_size))
+    self.params['W2'] = np.random.normal(scale=weight_scale, size=(int(num_filters*H/2*W/2), hidden_dim))
+    self.params['W3'] = np.random.normal(scale=weight_scale, size=(hidden_dim, num_classes))
+
+    self.params['b1'] = np.zeros(num_filters)
+    self.params['b2'] = np.zeros(hidden_dim)
+    self.params['b3'] = np.zeros(num_classes)
+
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################
@@ -63,7 +71,7 @@ class ThreeLayerConvNet(object):
             self.dropout_param['seed'] = seed
     
     for k, v in self.params.items():
-      self.params[k] = v.astype(dtype)
+        self.params[k] = v.astype(dtype)
      
  
   def loss(self, X, y=None):
@@ -104,13 +112,22 @@ class ThreeLayerConvNet(object):
     # self.bn_params[1] to the forward pass for the second batch normalization #
     # layer, etc.                                                              #
     ############################################################################
-    pass
+    out, cache = conv_relu_pool_forward(X, W1, b1, conv_param, pool_param) # convoluation relu max pool layer
+    # Hidden Layer
+    if self.use_dropout:
+        out, cache_drop = dropout_forward(out, self.dropout_param)
+    hidden_affine_out, hidden_affine_cache = affine_forward(out, W2, b2) # hidden layer
+    relu_out,relu_cache = relu_forward(hidden_affine_out)                 # affine relu
+    
+    # if self.use_dropout:
+    #     relu_out, cache_drop2 = dropout_forward(relu_out, self.dropout_param)
+    output_affine_out, output_affine_cache = affine_forward(relu_out, W3, b3) # output layer
+    scores = output_affine_out
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################
-    
     if y is None:
-      return scores
+        return scores
     
     loss, grads = 0, {}
     ############################################################################
@@ -119,12 +136,31 @@ class ThreeLayerConvNet(object):
     # data loss using softmax, and make sure that grads[k] holds the gradients #
     # for self.params[k]. Don't forget to add L2 regularization!               #
     ############################################################################
-    pass
+    loss, dscores = softmax_loss(scores, y)
+    loss += 0.5 * self.reg*(np.sum(self.params['W1']* self.params['W1']) 
+         + np.sum(self.params['W2']* self.params['W2'])+np.sum(self.params['W3']* self.params['W3']))
+    
+    output_affine_dx, output_affine_dw, output_affine_db = affine_backward(dscores, output_affine_cache)
+    grads['W3'] = output_affine_dw + self.reg * self.params['W3']
+    grads['b3'] = output_affine_db
+     
+    rule_dx = relu_backward(output_affine_dx, relu_cache)
+    
+    hidden_affine_dx, hidden_affine_dw, hidden_affine_db = affine_backward(rule_dx, hidden_affine_cache)
+    grads['W2'] = hidden_affine_dw + self.reg * self.params['W2']
+    grads['b2'] = hidden_affine_db
+    
+    if self.use_dropout:
+        hidden_affine_dx = dropout_backward(hidden_affine_dx, cache_drop) 
+        
+        
+    conv_dx, conv_dw, conv_db = conv_relu_pool_backward(hidden_affine_dx, cache)
+    grads['W1'] = conv_dw + self.reg * self.params['W1']
+    grads['b1'] = conv_db
+    
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################
     
     return loss, grads
-  
-  
 pass
