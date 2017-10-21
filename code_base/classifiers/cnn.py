@@ -112,16 +112,24 @@ class ThreeLayerConvNet(object):
     # self.bn_params[1] to the forward pass for the second batch normalization #
     # layer, etc.                                                              #
     ############################################################################
-    out, cache = conv_relu_pool_forward(X, W1, b1, conv_param, pool_param) # convoluation relu max pool layer
-    # Hidden Layer
+    # convoluation relu max pool layer
+    out, cache = conv_relu_pool_forward(X, W1, b1, conv_param, pool_param) 
+    
+    # dropout Layer
     if self.use_dropout:
         out, cache_drop = dropout_forward(out, self.dropout_param)
-    hidden_affine_out, hidden_affine_cache = affine_forward(out, W2, b2) # hidden layer
-    relu_out,relu_cache = relu_forward(hidden_affine_out)                 # affine relu
     
-    # if self.use_dropout:
-    #     relu_out, cache_drop2 = dropout_forward(relu_out, self.dropout_param)
-    output_affine_out, output_affine_cache = affine_forward(relu_out, W3, b3) # output layer
+    # affine_relu
+    hidden_affine_out, hidden_affine_cache = affine_forward(out, W2, b2)
+    relu_out,relu_cache = relu_forward(hidden_affine_out)
+    
+    # dropout Layer
+    if self.use_dropout:
+        relu_out, cache_drop2 = dropout_forward(relu_out, self.dropout_param)
+    
+    # affine layer
+    output_affine_out, output_affine_cache = affine_forward(relu_out, W3, b3)
+    
     scores = output_affine_out
     ############################################################################
     #                             END OF YOUR CODE                             #
@@ -140,20 +148,27 @@ class ThreeLayerConvNet(object):
     loss += 0.5 * self.reg*(np.sum(self.params['W1']* self.params['W1']) 
          + np.sum(self.params['W2']* self.params['W2'])+np.sum(self.params['W3']* self.params['W3']))
     
+    # affine
     output_affine_dx, output_affine_dw, output_affine_db = affine_backward(dscores, output_affine_cache)
     grads['W3'] = output_affine_dw + self.reg * self.params['W3']
     grads['b3'] = output_affine_db
-     
+    
+    # dropout
+    if self.use_dropout:
+        output_affine_dx = dropout_backward(output_affine_dx, cache_drop)
+    
+    # affine_relu
     rule_dx = relu_backward(output_affine_dx, relu_cache)
     
     hidden_affine_dx, hidden_affine_dw, hidden_affine_db = affine_backward(rule_dx, hidden_affine_cache)
     grads['W2'] = hidden_affine_dw + self.reg * self.params['W2']
     grads['b2'] = hidden_affine_db
     
+    # dropout
     if self.use_dropout:
         hidden_affine_dx = dropout_backward(hidden_affine_dx, cache_drop) 
         
-        
+    #conv_relu_pool
     conv_dx, conv_dw, conv_db = conv_relu_pool_backward(hidden_affine_dx, cache)
     grads['W1'] = conv_dw + self.reg * self.params['W1']
     grads['b1'] = conv_db
